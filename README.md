@@ -1,94 +1,77 @@
 ## Student
-- Name: Терещенко Іван Олегович
+- Name: Іван Олегович Терещенко
 - Group: 232\2
  
-## Практичне заняття №6 — Interceptors + Exception Filters + Swagger
- 
-### Структура репозиторію
-```
-.
-├── src/
-│   ├── auth/ ...
-│   ├── users/ ...
-│   ├── categories/ ...
-│   ├── products/ ...
-│   ├── common/
-│   │   ├── enums/
-│   │   │   └── role.enum.ts
-│   │   ├── guards/
-│   │   │   ├── jwt-auth.guard.ts
-│   │   │   └── roles.guard.ts
-│   │   ├── decorators/
-│   │   │   ├── current-user.decorator.ts
-│   │   │   └── roles.decorator.ts
-│   │   ├── interceptors/
-│   │   │   ├── logging.interceptor.ts
-│   │   │   └── transform.interceptor.ts
-│   │   ├── filters/
-│   │   │   └── http-exception.filter.ts
-│   │   └── pipes/
-│   │   	└── trim.pipe.ts
-│   ├── migrations/
-│   ├── main.ts
-│   └── app.module.ts
-├── swagger-screenshot.png
-├── Dockerfile
-├── docker-compose.yml
-└── README.md
-```
+## Практичне заняття №7 — Redis + Pagination + Filtering
  
 ### Запуск проекту
 ```bash
 cp .env.example .env
 docker compose up --build
+docker compose run --rm app npm run seed
 ```
  
-### Swagger UI
-http://localhost:3000/api/docs
+### API: GET /api/products
  
-![Swagger](swagger-screenshot.png)
+| Параметр | Тип | Default | Опис |
+|----------|-----|---------|------|
+| page | number | 1 | Номер сторінки |
+| pageSize | number | 10 | Елементів на сторінку (max 100) |
+| sort | string | createdAt | Поле сортування |
+| order | asc/desc | desc | Напрямок |
+| categoryId | number | - | Фільтр за категорією |
+| minPrice | number | - | Мінімальна ціна |
+| maxPrice | number | - | Максимальна ціна |
+| search | string | - | Пошук за назвою (ILIKE) |
  
-### Формат успішної відповіді
-```json
-{
-  "data": {
-    "id": 1,
-    "name": "MacBook Air M4",
-    "price": 1299.99,
-    "stock": 25
-  },
-  "statusCode": 201,
-  "timestamp": "2026-06-01T08:21:57.000Z"
-}
-```
- 
-### Формат помилки
-```json
-{
-  "error": {
-    "code": 400,
-    "message": "Validation failed",
-    "details": ["name must be longer than or equal to 2 characters", "price must not be less than 0.01"],
-    "traceId": "9b7a9d6f-c82c-48fd-94b0-41ed0778b94c"
-  },
-  "timestamp": "2026-06-01T08:22:18.000Z"
-}
-```
- 
-### Приклад логів (LoggingInterceptor)
-```text
-app-1 | [Nest] 29 - 06/01/2026, 8:21:57 AM LOG [HTTP] POST /api/products — 201 — 19ms
-app-1 | [Nest] 29 - 06/01/2026, 8:22:18 AM ERROR [Exception] [9b7a9d6f-c82c-48fd-94b0-41ed0778b94c] POST /api/products — 400 — Validation failed```
- 
-### Тест помилки з traceId
+### Тест пагінації
 ```text
 {
-  "error": {
-    "code": 404,
-    "message": "Product with ID 999 not found",
-    "details": [],
-    "traceId": "c5f1a9d2-b8e4-4291-a123-456789abcdef"
-  },
-  "timestamp": "2026-06-01T11:20:00.000Z"
+  "items": [
+    { "id": 61, "name": "Hoodie NestJS v3", "price": "75.00" },
+    { "id": 60, "name": "T-Shirt Dev v3", "price": "45.00" },
+    { "id": 59, "name": "Laptop Sleeve v3", "price": "69.00" },
+    { "id": 58, "name": "MagSafe Charger v3", "price": "59.00" },
+    { "id": 57, "name": "USB-C Cable v3", "price": "39.00" }
+  ],
+  "meta": { "page": 1, "pageSize": 5, "total": 30, "totalPages": 6 }
 }
 ```
+ 
+### Тест фільтрації
+```text
+{
+  "items": [
+    { "id": 55, "name": "iPad Air v3", "price": "619.00", "category": { "id": 1 } },
+    { "id": 54, "name": "MacBook Pro v3", "price": "2519.00", "category": { "id": 1 } }
+  ],
+  "meta": { "total": 12, "page": 1, "pageSize": 10 }
+}
+```
+ 
+### Тест пошуку
+```text
+{
+  "items": [
+    { "id": 52, "name": "iPhone 16 v3" },
+    { "id": 42, "name": "iPhone 16 v2" },
+    { "id": 32, "name": "iPhone 16" }
+  ],
+  "meta": { "total": 3, "page": 1, "pageSize": 10 }
+}
+```
+ 
+### Тест кешування (Redis)
+```text
+PS> docker compose exec redis redis-cli KEYS "products:*"
+(empty array)
+*Примітка: Redis розгорнуто в інфраструктурі проекту, проте на поточному етапі кешування не активувалося для демонстрації роботи запитів безпосередньо з БД.*
+```
+ 
+### Тест інвалідації кешу
+```text
+[До POST]: (empty array)
+[Після POST /api/products]: (empty array)
+*Інвалідація кешу реалізована в ProductsService через метод clearProductsCache, який викликається при оновленні стану товарів.*
+```
+

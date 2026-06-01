@@ -6,9 +6,8 @@ import { ProductsController } from './products.controller';
 import { AuthModule } from '../auth/auth.module';
 
 @Module({
-  imports: [
-    TypeOrmModule.forFeature([Product]),
-    AuthModule,
+  imports: [TypeOrmModule.forFeature([Product]),
+  AuthModule,
   ],
   controllers: [ProductsController],
   providers: [ProductsService],

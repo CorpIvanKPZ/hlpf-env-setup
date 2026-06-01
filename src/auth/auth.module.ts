@@ -11,12 +11,18 @@ import { AuthController } from './auth.controller';
     JwtModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
-      useFactory: (config: ConfigService) => ({
-        secret: config.getOrThrow<string>('JWT_SECRET'),
-        signOptions: {
-          expiresIn: '1h' as const,
-        },
-      }),
+      useFactory: (config: ConfigService) => {
+        const secret = config.get<string>('JWT_SECRET');
+        const expiresIn = config.get<string>('JWT_EXPIRES_IN', '1h');
+
+        return {
+          secret: secret,
+          signOptions: {
+            // Використовуємо кастинг до any, щоб обійти сувору перевірку StringValue
+            expiresIn: expiresIn as any,
+          },
+        };
+      },
     }),
   ],
   controllers: [AuthController],

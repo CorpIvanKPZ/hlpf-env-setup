@@ -14,37 +14,44 @@ export class ProductsService {
 
   async findAll(): Promise<Product[]> {
     return this.productRepo.find({
-      relations: { category: true },
+      relations: ['category'],
     });
   }
 
   async findOne(id: number): Promise<Product> {
     const product = await this.productRepo.findOne({
       where: { id },
-      relations: { category: true },
+      relations: ['category'],
     });
     if (!product) {
-      throw new NotFoundException(`Product #${id} not found`);
+      throw new NotFoundException(
+        `Product #${id} not found`,
+      );
     }
     return product;
   }
 
-  async create(dto: CreateProductDto): Promise<Product> {
+    async create(dto: CreateProductDto): Promise<Product> {
     const product = this.productRepo.create({
       name: dto.name,
       description: dto.description,
       price: dto.price,
       stock: dto.stock ?? 0,
-      category: dto.categoryId ? ({ id: dto.categoryId } as any) : undefined,
+      category: dto.categoryId
+        ? { id: dto.categoryId } as any
+        : undefined,
     });
     return this.productRepo.save(product);
   }
 
-  async update(id: number, dto: UpdateProductDto): Promise<Product> {
+  async update(
+    id: number,
+    dto: UpdateProductDto,
+  ): Promise<Product> {
     const product = await this.findOne(id);
-
     if (dto.name !== undefined) product.name = dto.name;
-    if (dto.description !== undefined) product.description = dto.description;
+    if (dto.description !== undefined)
+      product.description = dto.description;
     if (dto.price !== undefined) product.price = dto.price;
     if (dto.stock !== undefined) product.stock = dto.stock;
     if (dto.categoryId !== undefined) {

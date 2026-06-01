@@ -1,9 +1,14 @@
-import { Injectable, ConflictException, UnauthorizedException } from '@nestjs/common';
+import {
+  Injectable,
+  ConflictException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { UsersService } from '../users/users.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
+import { Role } from '../common/enums/role.enum';
 
 @Injectable()
 export class AuthService {
@@ -13,22 +18,53 @@ export class AuthService {
   ) {}
 
   async register(dto: RegisterDto) {
+    // 1. Перевірити унікальність email
     const existing = await this.usersService.findByEmail(dto.email);
-    if (existing) throw new ConflictException('User with this email already exists');
+    if (existing) {
+      throw new ConflictException('User with this email already exists');
+    }
 
+    // 2. Хешувати пароль
     const passwordHash = await bcrypt.hash(dto.password, 10);
-    const user = await this.usersService.create({ email: dto.email, passwordHash, name: dto.name });
-    
+
+    // 3. Визначаємо роль: ADMIN для admin@test.com, USER для всіх інших
+    const role = dto.email === 'admin@test.com' ? Role.ADMIN : Role.USER;
+
+    // 4. Зберегти користувача з роллю
+    const user = await this.usersService.create({
+      email: dto.email,
+      passwordHash,
+      name: dto.name,
+      role, // Обов'язково передаємо роль
+    });
+
+    // 5. Повернути без хешу пароля
     const { passwordHash: _, ...result } = user;
     return result;
   }
 
   async login(dto: LoginDto) {
+    // 1. Знайти користувача за email
     const user = await this.usersService.findByEmail(dto.email);
-    if (!user || !(await bcrypt.compare(dto.password, user.passwordHash))) {
+    if (!user) {
       throw new UnauthorizedException('Invalid credentials');
     }
-    const payload = { sub: user.id, email: user.email, role: user.role };
-    return { accessToken: this.jwtService.sign(payload) };
+
+    // 2. Порівняти пароль
+    const isMatch = await bcrypt.compare(dto.password, user.passwordHash);
+    if (!isMatch) {
+      throw new UnauthorizedException('Invalid credentials');
+    }
+
+    // 3. Згенерувати JWT (роль береться з об'єкта user, який прийшов з БД)
+    const payload = {
+      sub: user.id,
+      email: user.email,
+      role: user.role, // Ця роль тепер прийде з БД завдяки правильному реєстратору
+    };
+
+    return {
+      accessToken: this.jwtService.sign(payload),
+    };
   }
 }

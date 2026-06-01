@@ -2,23 +2,16 @@
 - Name: Терещенко Іван Олегович
 - Group: 232\2
  
-## Практичне заняття №5 — JWT Authentication + Guards + RBAC
+## Практичне заняття №6 — Interceptors + Exception Filters + Swagger
  
 ### Структура репозиторію
 ```
 .
 ├── src/
-│   ├── auth/
-│   │   ├── dto/
-│   │   │   ├── register.dto.ts
-│   │   │   └── login.dto.ts
-│   │   ├── auth.module.ts
-│   │   ├── auth.service.ts
-│   │   └── auth.controller.ts
-│   ├── users/
-│   │   ├── user.entity.ts
-│   │   ├── users.module.ts
-│   │   └── users.service.ts
+│   ├── auth/ ...
+│   ├── users/ ...
+│   ├── categories/ ...
+│   ├── products/ ...
 │   ├── common/
 │   │   ├── enums/
 │   │   │   └── role.enum.ts
@@ -28,14 +21,17 @@
 │   │   ├── decorators/
 │   │   │   ├── current-user.decorator.ts
 │   │   │   └── roles.decorator.ts
+│   │   ├── interceptors/
+│   │   │   ├── logging.interceptor.ts
+│   │   │   └── transform.interceptor.ts
+│   │   ├── filters/
+│   │   │   └── http-exception.filter.ts
 │   │   └── pipes/
 │   │   	└── trim.pipe.ts
-│   ├── categories/ ...
-│   ├── products/ ...
 │   ├── migrations/
-│   ├── data-source.ts
 │   ├── main.ts
 │   └── app.module.ts
+├── swagger-screenshot.png
 ├── Dockerfile
 ├── docker-compose.yml
 └── README.md
@@ -47,45 +43,52 @@ cp .env.example .env
 docker compose up --build
 ```
  
-### API Endpoints
-| Method | URL | Auth | Role |
-|--------|-----|------|------|
-| POST | /auth/register | - | - |
-| POST | /auth/login | - | - |
-| GET | /api/categories | - | - |
-| POST | /api/categories | JWT | admin |
-| GET | /api/products | - | - |
-| POST | /api/products | JWT | admin |
-| PATCH | /api/products/:id | JWT | admin |
-| DELETE | /api/products/:id | JWT | admin |
+### Swagger UI
+http://localhost:3000/api/docs
  
-### Тест реєстрації
-```text
-id        : 1
-email     : user@test.com
-name      : Test User
-role      : user
-createdAt : 2026-06-01T01:59:15.263Z
+![Swagger](swagger-screenshot.png)
+ 
+### Формат успішної відповіді
+```json
+{
+  "data": {
+    "id": 1,
+    "name": "MacBook Air M4",
+    "price": 1299.99,
+    "stock": 25
+  },
+  "statusCode": 201,
+  "timestamp": "2026-06-01T08:21:57.000Z"
+}
 ```
  
-### Тест логіну
-```text
-accessToken
------------
-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOjEsImVtYWlsIjoidXNlckB0ZXN0LmNvbSIsInJvbGUiOiJ1c2VyIiwiaWF0IjoxNzgwMjc5MTYwLCJleHAiOjE3ODAyODI3NjB9.I...
+### Формат помилки
+```json
+{
+  "error": {
+    "code": 400,
+    "message": "Validation failed",
+    "details": ["name must be longer than or equal to 2 characters", "price must not be less than 0.01"],
+    "traceId": "9b7a9d6f-c82c-48fd-94b0-41ed0778b94c"
+  },
+  "timestamp": "2026-06-01T08:22:18.000Z"
+}
 ```
  
-### Тест 401 — запит без токена
+### Приклад логів (LoggingInterceptor)
 ```text
- "message": "Missing authorization token","error": "Unauthorized","statusCode": 401
-```
+app-1 | [Nest] 29 - 06/01/2026, 8:21:57 AM LOG [HTTP] POST /api/products — 201 — 19ms
+app-1 | [Nest] 29 - 06/01/2026, 8:22:18 AM ERROR [Exception] [9b7a9d6f-c82c-48fd-94b0-41ed0778b94c] POST /api/products — 400 — Validation failed```
  
-### Тест 403 — запит з роллю user
+### Тест помилки з traceId
 ```text
-  "message": "Insufficient permissions"
-```
- 
-### Тест успішного створення від admin
-```text
-"id": 1,"name": "MacBook Pro","price": 2499.99,"stock": 10,"createdAt": "2026-06-01T..."
+{
+  "error": {
+    "code": 404,
+    "message": "Product with ID 999 not found",
+    "details": [],
+    "traceId": "c5f1a9d2-b8e4-4291-a123-456789abcdef"
+  },
+  "timestamp": "2026-06-01T11:20:00.000Z"
+}
 ```

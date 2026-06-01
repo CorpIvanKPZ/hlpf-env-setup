@@ -1,32 +1,29 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { PassportModule } from '@nestjs/passport';
 import { UsersModule } from '../users/users.module';
 import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
+import { JwtStrategy } from './jwt.strategy';
 
 @Module({
   imports: [
-    UsersModule,
+    forwardRef(() => UsersModule), // Використовуємо forwardRef на випадок циклів
+    PassportModule,
     JwtModule.registerAsync({
+      global: true,
       imports: [ConfigModule],
       inject: [ConfigService],
-      useFactory: (config: ConfigService) => {
-        const secret = config.get<string>('JWT_SECRET');
-        const expiresIn = config.get<string>('JWT_EXPIRES_IN', '1h');
-
-        return {
-          secret: secret,
-          signOptions: {
-            // Використовуємо кастинг до any, щоб обійти сувору перевірку StringValue
-            expiresIn: expiresIn as any,
-          },
-        };
-      },
+      useFactory: (config: ConfigService) => ({
+        secret: config.get<string>('JWT_SECRET'),
+        signOptions: { expiresIn: config.get<string>('JWT_EXPIRES_IN', '1h') as any },
+      }),
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService],
-  exports: [JwtModule],
+  providers: [AuthService, JwtStrategy],
+  // Експортуємо JwtModule, щоб усі сервіси/гарди бачили JwtService
+  exports: [AuthService, JwtModule], 
 })
 export class AuthModule {}

@@ -19,7 +19,7 @@ export class Product {
   stock: number;
 
   @Column({ type: 'boolean', default: true })
-  isActive: boolean;
+    isActive: boolean;
 
   @ManyToOne(() => Category, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'category_id' })

@@ -5,12 +5,11 @@ dotenv.config();
 
 const ds = new DataSource({
   type: 'postgres',
-  host: process.env.POSTGRES_HOST || 'localhost',
-  port: parseInt(process.env.POSTGRES_PORT || '5432', 10),
-  username: process.env.POSTGRES_USER || 'nestuser',
-  password: process.env.POSTGRES_PASSWORD || 'nestpassword',
-  database: process.env.POSTGRES_DB || 'nestdb',
-  entities: [__dirname + '/../**/*.entity{.ts,.js}'],
+  host: process.env.POSTGRES_HOST,
+  port: parseInt(process.env.POSTGRES_PORT as string, 10),
+  username: process.env.POSTGRES_USER,
+  password: process.env.POSTGRES_PASSWORD,
+  database: process.env.POSTGRES_DB,
 });
 
 async function seed() {
@@ -19,7 +18,11 @@ async function seed() {
   // Категорії
   const cats = ['Electronics', 'Accessories', 'Clothing'];
   for (const name of cats) {
-    await ds.query(`INSERT INTO categories (name) VALUES ($1) ON CONFLICT DO NOTHING`, [name]);
+    await ds.query(
+      `INSERT INTO categories (name) VALUES ($1)
+          ON CONFLICT DO NOTHING`,
+      [name],
+    );
   }
 
   // Продукти
@@ -36,18 +39,21 @@ async function seed() {
     { name: 'Hoodie NestJS', price: 55, stock: 75, cat: 3 },
   ];
 
+  // Додати 30 записів (3 рази по 10)
   for (let i = 0; i < 3; i++) {
     for (const p of products) {
-      // Додай цей рядок:
-      const suffix = i > 0 ? ` v${i + 1}` : ''; 
-      
+      const suffix = i > 0 ? ` v${i + 1}` : '';
       await ds.query(
-  `INSERT INTO products (name, price, stock, category_id) VALUES ($1, $2, $3, $4) ON CONFLICT DO NOTHING`,
-  [`${p.name}${suffix}`, p.price + i * 10, p.stock, p.cat],
-);}
+        `INSERT INTO products
+             (name, price, stock, "category_id")
+         VALUES ($1, $2, $3, $4)
+             ON CONFLICT DO NOTHING`,
+        [`${p.name}${suffix}`, p.price + i * 10, p.stock, p.cat],
+      );
+    }
   }
 
-  console.log('Seed complete: 30 products added.');
+  console.log('Seed complete: 3 categories, 30 products');
   await ds.destroy();
 }
 

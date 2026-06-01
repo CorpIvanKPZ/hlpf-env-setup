@@ -23,16 +23,25 @@ async function bootstrap() {
     new LoggingInterceptor(),
     new TransformInterceptor(),
   );
+
   app.useGlobalFilters(new HttpExceptionFilter());
+
   const config = new DocumentBuilder()
     .setTitle('MiniShop API')
-    .setDescription('REST API для навчального інтернет-магазину.')
+    .setDescription(
+      'REST API для навчального інтернет-магазину. ' +
+      'Автентифікація через JWT Bearer token.',
+    )
     .setVersion('1.0')
     .addBearerAuth()
     .build();
 
-  const document = SwaggerModule.createDocument(app, config);
+  const document = SwaggerModule.createDocument(
+    app,
+    config,
+  );
   SwaggerModule.setup('api/docs', app, document);
+
   await app.listen(3000);
 }
 bootstrap();

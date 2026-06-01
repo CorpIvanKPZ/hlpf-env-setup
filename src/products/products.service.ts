@@ -2,7 +2,7 @@ import { Injectable, NotFoundException, Inject } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
-import { Cache } from 'cache-manager';
+import type { Cache } from 'cache-manager';
 import { Product } from './product.entity';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
@@ -13,76 +13,78 @@ export class ProductsService {
   constructor(
     @InjectRepository(Product)
     private readonly productRepo: Repository<Product>,
-    @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
+    @Inject(CACHE_MANAGER)
+    private readonly cacheManager: Cache,
   ) {}
 
   async findAll(query: ProductQueryDto) {
-    // 1. Формуємо унікальний ключ для кешу
+    // 1. Сформувати ключ кешу з query параметрів
     const cacheKey = `products:${JSON.stringify(query)}`;
 
-    // 2. Перевіряємо кеш
+    // 2. Перевірити кеш
     const cached = await this.cacheManager.get(cacheKey);
     if (cached) {
       return cached;
     }
 
-    // 3. Запит до БД
-    const { page, pageSize, sort, order, categoryId, minPrice, maxPrice, search } = query;
+    // 3. Виконати запит до БД
+    const {
+      page = 1,
+      pageSize = 10,
+      sort = 'createdAt',
+      order = 'desc',
+      categoryId,
+      minPrice,
+      maxPrice,
+      search
+    } = query;
 
     const qb = this.productRepo
       .createQueryBuilder('product')
       .leftJoinAndSelect('product.category', 'category');
 
-    if (categoryId) qb.andWhere('category.id = :categoryId', { categoryId });
-    if (minPrice !== undefined) qb.andWhere('product.price >= :minPrice', { minPrice });
-    if (maxPrice !== undefined) qb.andWhere('product.price <= :maxPrice', { maxPrice });
-    if (search) qb.andWhere('product.name ILIKE :search', { search: `%${search}%` });
+    // Фільтр за категорією
+    if (categoryId) {
+      qb.andWhere('category.id = :categoryId', { categoryId });
+    }
 
+    // Фільтри за ціною
+    if (minPrice !== undefined) {
+      qb.andWhere('product.price >= :minPrice', { minPrice });
+    }
+    if (maxPrice !== undefined) {
+      qb.andWhere('product.price <= :maxPrice', { maxPrice });
+    }
+
+    // Пошук за назвою (case-insensitive)
+    if (search) {
+      qb.andWhere('product.name ILIKE :search', { search: `%${search}%` });
+    }
+
+    // Сортування
     qb.orderBy(`product.${sort}`, order.toUpperCase() as 'ASC' | 'DESC');
-    qb.skip((page - 1) * pageSize).take(pageSize);
 
+    // Пагінація
+    const skip = (page - 1) * pageSize;
+    qb.skip(skip).take(pageSize);
+
+    // Виконати запит з підрахунком
     const [items, total] = await qb.getManyAndCount();
+
     const result = {
       items,
-      meta: { page, pageSize, total, totalPages: Math.ceil(total / pageSize) },
+      meta: {
+        page,
+        pageSize,
+        total,
+        totalPages: Math.ceil(total / pageSize)
+      },
     };
 
-    // 4. Зберігаємо результат в кеш (TTL 60 секунд)
+    // 4. Зберегти в кеш (TTL 60 секунд = 60000 мс)
     await this.cacheManager.set(cacheKey, result, 60_000);
 
     return result;
-  }
-
-  // Метод для очищення кешу
-  private async clearProductsCache(): Promise<void> {
-    const keys: string[] = await this.cacheManager.store.keys('products:*');
-    if (keys.length > 0) {
-      await Promise.all(keys.map((key) => this.cacheManager.del(key)));
-    }
-  }
-
-  async create(dto: CreateProductDto): Promise<Product> {
-    const product = this.productRepo.create({
-      ...dto,
-      category: dto.categoryId ? { id: dto.categoryId } as any : undefined,
-    });
-    const saved = await this.productRepo.save(product);
-    await this.clearProductsCache(); // <-- Інвалідація
-    return saved;
-  }
-
-  async update(id: number, dto: UpdateProductDto): Promise<Product> {
-    const product = await this.findOne(id);
-    // ... логіка оновлення ...
-    const saved = await this.productRepo.save(product);
-    await this.clearProductsCache(); // <-- Інвалідація
-    return saved;
-  }
-
-  async remove(id: number): Promise<void> {
-    const product = await this.findOne(id);
-    await this.productRepo.remove(product);
-    await this.clearProductsCache(); // <-- Інвалідація
   }
 
   async findOne(id: number): Promise<Product> {
@@ -90,7 +92,54 @@ export class ProductsService {
       where: { id },
       relations: ['category'],
     });
-    if (!product) throw new NotFoundException(`Product #${id} not found`);
+    if (!product) {
+      throw new NotFoundException(`Product #${id} not found`);
+    }
     return product;
+  }
+
+  async create(dto: CreateProductDto): Promise<Product> {
+    const product = this.productRepo.create({
+      name: dto.name,
+      description: dto.description,
+      price: dto.price,
+      stock: dto.stock ?? 0,
+      category: dto.categoryId
+        ? ({ id: dto.categoryId } as any)
+        : undefined,
+    });
+    const saved = await this.productRepo.save(product);
+    await this.clearProductsCache(); // Очищаємо кеш
+    return saved;
+  }
+
+  async update(id: number, dto: UpdateProductDto): Promise<Product> {
+    const product = await this.findOne(id);
+
+    if (dto.name !== undefined) product.name = dto.name;
+    if (dto.description !== undefined) product.description = dto.description;
+    if (dto.price !== undefined) product.price = dto.price;
+    if (dto.stock !== undefined) product.stock = dto.stock;
+    if (dto.categoryId !== undefined) {
+      product.category = { id: dto.categoryId } as any;
+    }
+
+    const saved = await this.productRepo.save(product);
+    await this.clearProductsCache();
+    return saved;
+  }
+
+  async remove(id: number): Promise<void> {
+    const product = await this.findOne(id);
+    await this.productRepo.remove(product);
+    await this.clearProductsCache();
+  }
+
+  // Приватний метод для інвалідації кешу продуктів
+  private async clearProductsCache(): Promise<void> {
+    const keys: string[] = await (this.cacheManager as any).store.keys('products:*');
+    if (keys.length > 0) {
+      await Promise.all(keys.map((key) => this.cacheManager.del(key)));
+    }
   }
 }

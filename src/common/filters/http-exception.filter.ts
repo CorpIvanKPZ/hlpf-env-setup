@@ -10,21 +10,17 @@ import { randomUUID } from 'crypto';
 import { Request, Response } from 'express';
 
 @Catch()
-export class HttpExceptionFilter implements ExceptionFilter {
+export class HttpExceptionFilter
+  implements ExceptionFilter
+{
   private readonly logger = new Logger('Exception');
 
   catch(exception: unknown, host: ArgumentsHost) {
     const ctx = host.switchToHttp();
     const request = ctx.getRequest<Request>();
     const response = ctx.getResponse<Response>();
-
-    // ФІНАЛЬНИЙ ЗАПОБІЖНИК: 
-    // Якщо запит до документації, не чіпаємо його своїм форматом
-    if (request.url.includes('api/docs')) {
-      return response.status(HttpStatus.NOT_FOUND).send('Swagger docs not found');
-    }
-
     const traceId = randomUUID();
+
     let status = HttpStatus.INTERNAL_SERVER_ERROR;
     let message = 'Internal server error';
     let details: any = undefined;
@@ -37,6 +33,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
       } else if (typeof body === 'object') {
         const obj = body as any;
         message = obj.message || obj.error || message;
+        // ValidationPipe повертає масив помилок
         if (Array.isArray(obj.message)) {
           details = obj.message;
           message = 'Validation failed';
@@ -44,9 +41,13 @@ export class HttpExceptionFilter implements ExceptionFilter {
       }
     }
 
+    // Логуємо з traceId для дебагу
     this.logger.error(
-      `[${traceId}] ${request.method} ${request.url} — ${status} — ${message}`,
-      exception instanceof Error ? exception.stack : undefined,
+      `[${traceId}] ${request.method} ${request.url}` +
+      ` — ${status} — ${message}`,
+      exception instanceof Error
+        ? exception.stack
+        : undefined,
     );
 
     response.status(status).json({

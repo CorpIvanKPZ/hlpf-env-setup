@@ -1,19 +1,13 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
-  IsString,
-  IsNumber,
-  IsOptional,
-  IsInt,
-  Min,
-  MaxLength,
-  MinLength,
+  IsString, IsNumber, IsOptional,
+  IsInt, Min, MaxLength, MinLength,
 } from 'class-validator';
 
 export class CreateProductDto {
   @ApiProperty({
     example: 'iPhone 16',
     description: 'Назва продукту',
-    minLength: 2,
     maxLength: 255,
   })
   @IsString()
@@ -33,7 +27,6 @@ export class CreateProductDto {
   @ApiPropertyOptional({
     example: 'Flagship smartphone',
     description: 'Опис продукту',
-    maxLength: 1000,
   })
   @IsOptional()
   @IsString()

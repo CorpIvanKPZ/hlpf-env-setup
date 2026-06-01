@@ -6,7 +6,6 @@ import {
 } from '@nestjs/common';
 import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
-import { Request } from 'express'; // Додай цей імпорт
 
 export interface Response<T> {
   data: T;
@@ -15,17 +14,16 @@ export interface Response<T> {
 }
 
 @Injectable()
-export class TransformInterceptor<T> implements NestInterceptor<T, Response<T>> {
-  intercept(context: ExecutionContext, next: CallHandler): Observable<Response<T> | any> {
-    const ctx = context.switchToHttp();
-    const request = ctx.getRequest<Request>();
-    
-    // Якщо запит стосується Swagger — просто пропускаємо далі без змін
-    if (request.url.includes('api/docs')) {
-      return next.handle();
-    }
-
-    const statusCode = ctx.getResponse().statusCode;
+export class TransformInterceptor<T>
+  implements NestInterceptor<T, Response<T>>
+{
+  intercept(
+    context: ExecutionContext,
+    next: CallHandler,
+  ): Observable<Response<T>> {
+    const statusCode = context
+      .switchToHttp()
+      .getResponse().statusCode;
 
     return next.handle().pipe(
       map((data) => ({

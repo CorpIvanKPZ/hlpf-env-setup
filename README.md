@@ -1,32 +1,37 @@
-Student
-Name: Терещенко Іван Олегович
-Group: 232\2
+## Student
+- Name: Терещенко Іван Олегович
+- Group: 232\2
  
-## Практичне заняття №4 — DTO + class-validator + Pipes
+## Практичне заняття №5 — JWT Authentication + Guards + RBAC
  
 ### Структура репозиторію
 ```
 .
 ├── src/
-│   ├── categories/
+│   ├── auth/
 │   │   ├── dto/
-│   │   │   ├── create-category.dto.ts
-│   │   │   └── update-category.dto.ts
-│   │   ├── category.entity.ts
-│   │   ├── categories.module.ts
-│   │   ├── categories.service.ts
-│   │   └── categories.controller.ts
-│   ├── products/
-│   │   ├── dto/
-│   │   │   ├── create-product.dto.ts
-│   │   │   └── update-product.dto.ts
-│   │   ├── product.entity.ts
-│   │   ├── products.module.ts
-│   │   ├── products.service.ts
-│   │   └── products.controller.ts
+│   │   │   ├── register.dto.ts
+│   │   │   └── login.dto.ts
+│   │   ├── auth.module.ts
+│   │   ├── auth.service.ts
+│   │   └── auth.controller.ts
+│   ├── users/
+│   │   ├── user.entity.ts
+│   │   ├── users.module.ts
+│   │   └── users.service.ts
 │   ├── common/
+│   │   ├── enums/
+│   │   │   └── role.enum.ts
+│   │   ├── guards/
+│   │   │   ├── jwt-auth.guard.ts
+│   │   │   └── roles.guard.ts
+│   │   ├── decorators/
+│   │   │   ├── current-user.decorator.ts
+│   │   │   └── roles.decorator.ts
 │   │   └── pipes/
 │   │   	└── trim.pipe.ts
+│   ├── categories/ ...
+│   ├── products/ ...
 │   ├── migrations/
 │   ├── data-source.ts
 │   ├── main.ts
@@ -42,30 +47,45 @@ cp .env.example .env
 docker compose up --build
 ```
  
-### Тест валідації — порожнє ім'я категорії
+### API Endpoints
+| Method | URL | Auth | Role |
+|--------|-----|------|------|
+| POST | /auth/register | - | - |
+| POST | /auth/login | - | - |
+| GET | /api/categories | - | - |
+| POST | /api/categories | JWT | admin |
+| GET | /api/products | - | - |
+| POST | /api/products | JWT | admin |
+| PATCH | /api/products/:id | JWT | admin |
+| DELETE | /api/products/:id | JWT | admin |
+ 
+### Тест реєстрації
 ```text
-{"message":["name must be longer than or equal to 2 characters"],"error":"Bad Request","statusCode":400}
+id        : 1
+email     : user@test.com
+name      : Test User
+role      : user
+createdAt : 2026-06-01T01:59:15.263Z
 ```
  
-### Тест валідації — від'ємна ціна продукту
+### Тест логіну
 ```text
-{"message":["price must be not less than 0.01"],"error":"Bad Request","statusCode":400}
+accessToken
+-----------
+eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOjEsImVtYWlsIjoidXNlckB0ZXN0LmNvbSIsInJvbGUiOiJ1c2VyIiwiaWF0IjoxNzgwMjc5MTYwLCJleHAiOjE3ODAyODI3NjB9.I...
 ```
  
-### Тест валідації — зайве поле
+### Тест 401 — запит без токена
 ```text
-{"message":["property isAdmin should not exist"],"error":"Bad Request","statusCode":400}
+ "message": "Missing authorization token","error": "Unauthorized","statusCode": 401
 ```
  
-### Тест TrimPipe
+### Тест 403 — запит з роллю user
 ```text
-# Input: {"name": "  Accessories  "}
-# Result: {"name": "Accessories"} (пробіли обрізано)
+  "message": "Insufficient permissions"
 ```
  
-### Тест валідне створення продукту
+### Тест успішного створення від admin
 ```text
-StatusCode: 201
-Content: {"id":1,"name":"iPhone 16","price":999.99,"stock":50,"categoryId":1}
+"id": 1,"name": "MacBook Pro","price": 2499.99,"stock": 10,"createdAt": "2026-06-01T..."
 ```
-
